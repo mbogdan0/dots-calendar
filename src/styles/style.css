@@ -1,0 +1,715 @@
+/* Color + layout custom properties are injected at runtime (config/theme.ts,
+   main.ts). Fallbacks here keep the file usable on its own. */
+:root {
+  --bg: #fdf0d5;
+  --weekday: #dda15e;
+  --weekend: #bc6c25;
+  --event: #c1121f;
+  --today: #0c7c59;
+  --monthLabel: #6d7653;
+
+  --radius: 7px;
+  --radius-lg: 10px;
+  --shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --border-soft: 1px solid rgba(0, 0, 0, 0.03);
+
+  --panel-bg: rgba(253, 240, 213, 0.85);
+  --panel-border: 1px solid rgba(0, 0, 0, 0.05);
+  --panel-shadow: 0 -3px 15px rgba(0, 0, 0, 0.05);
+  --pill: rgba(0, 0, 0, 0.1);
+
+  /* Single extra accent reserved for the add/edit form surface. */
+  --form-accent: #457b9d;
+  --form-tint: rgba(69, 123, 157, 0.08);
+
+  --gutter-w: 75px;
+  --grid-gap: 3px;
+  --cell-max: 88px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  padding: 28px 32px 120px;
+  min-height: 100vh;
+  background: var(--bg);
+  color: #222;
+  font: 15px -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Grid ------------------------------------------------------------------ */
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--grid-gap);
+  margin: 0 auto;
+  position: relative;
+}
+
+.row {
+  display: grid;
+  gap: var(--grid-gap);
+  align-items: stretch;
+}
+
+.day,
+.empty {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius);
+}
+
+.day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-soft);
+  border: var(--border-soft);
+  color: #fff;
+  text-align: center;
+  overflow: hidden;
+  cursor: pointer;
+  /* Size container: labels scale with the square via cq units below.
+     Transforms (hover/pulse) are safe: cq resolves against layout size. */
+  container-type: size;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.day:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  z-index: 2;
+}
+
+/* Post-mutation confirmation ring (paired with the scale pulse in effects.ts). */
+.day.is-pulse {
+  outline: 2px solid var(--today);
+  outline-offset: 2px;
+  z-index: 2;
+}
+
+.day > span {
+  pointer-events: none;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6%;
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* Fixed-px fallback first; browsers with container-query support take the
+     cq value. Width-aware via --ln (label length in chars, set by cell.ts):
+     short names grow until height-capped, long ones stop at the cell edge. */
+  font-size: 12px;
+  font-size: min(clamp(10px, 42cqh, 42px), calc(140cqw / var(--ln, 4)));
+}
+
+/* Two stacked lines: two event names, or name + "+N" overflow (.is-plus). */
+.day.is-two > span {
+  white-space: normal;
+  text-overflow: clip;
+  line-height: 1.15;
+  font-size: 11px;
+  font-size: min(clamp(8px, 30cqh, 30px), calc(140cqw / var(--ln, 4)));
+}
+
+.day.is-two .l1,
+.day.is-two .l2 {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day.is-plus .l2 {
+  font-size: 0.85em;
+  opacity: 0.85;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tiny-cell fallbacks, revealed only by the container tiers below:
+   .lc = full count, .li = first letter of a single event's name. */
+.day .lc,
+.day .li {
+  display: none;
+}
+
+/* Density collapse for smallish cells.
+   Breakpoint is a literal: @container conditions cannot read CSS vars.
+   Cross-referenced in config/settings.ts (LAYOUT comment). */
+@container (max-height: 40px) {
+  /* 2 events: one label at the single-line scale. */
+  .day.is-two > span {
+    font-size: 12px;
+    font-size: min(clamp(8px, 34cqh, 16px), calc(140cqw / var(--ln, 4)));
+  }
+
+  .day.is-two .l2 {
+    display: none;
+  }
+
+  /* 3+ events: compact count only. */
+  .day.is-plus .l1,
+  .day.is-plus .l2 {
+    display: none;
+  }
+
+  .day.is-plus .lc {
+    display: block;
+    font-weight: 600;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-size: clamp(9px, 40cqh, 18px);
+  }
+}
+
+/* Smallest tier: a single glyph per cell — the name's first letter (.li) or
+   the event count (.lc). Must come after the 40px tier so its equal-specificity
+   rules win; .day.is-two .l1 is spelled out to beat the base 0-3-0 rule. */
+@container (max-height: 28px) {
+  .day > span,
+  .day.is-two > span {
+    font-weight: 600;
+    font-size: 10px;
+    font-size: clamp(9px, 55cqh, 15px);
+  }
+
+  .day .l1,
+  .day.is-two .l1,
+  .day.is-two .l2 {
+    display: none;
+  }
+
+  .day .li,
+  .day.is-two .lc,
+  .day.is-plus .lc {
+    display: block;
+    font-weight: 600;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    font-size: clamp(9px, 55cqh, 15px);
+  }
+}
+
+/* Search-match highlight: ring only — the fill color never changes. */
+.day.is-match {
+  outline: 2px solid var(--today);
+  outline-offset: 1px;
+}
+
+/* The day whose panel is currently open (same accent as the form). */
+.day.is-open {
+  outline: 2px solid var(--form-accent);
+  outline-offset: 1px;
+}
+
+/* Multi-select: same accent — a panel can't be open while selecting. */
+.day.is-selected {
+  outline: 2px solid var(--form-accent);
+  outline-offset: 1px;
+}
+
+body.is-select-mode .day {
+  cursor: cell;
+}
+
+.empty {
+  background: transparent;
+}
+
+/* --- Side month label (stream view) --------------------------------------- */
+.gutter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  color: var(--monthLabel);
+  white-space: nowrap;
+  overflow: hidden;
+  /* Size container (like .day): both axes are externally fixed — width by the
+     grid column, height by row stretch — so the label can scale via cqh. */
+  container-type: size;
+}
+
+.gutter > span {
+  /* Height-scaled but width-capped: 28cqw of the gutter content box keeps the
+     ~3.3em "июн 26" label at ≤90% of the available width — it can never clip. */
+  font-size: 13px;
+  font-size: min(clamp(10px, 30cqh, 22px), 28cqw);
+}
+
+/* --- Month header (months view) ------------------------------------------- */
+.monthLabel {
+  color: var(--monthLabel);
+  font-size: 15px;
+  font-size: clamp(14px, calc(var(--cell-max) * 0.24), 24px);
+  line-height: 1;
+  margin: 16px 0 4px;
+}
+
+/* --- Empty search result ---------------------------------------------------- */
+.empty-state {
+  text-align: center;
+  color: var(--monthLabel);
+  padding: 48px 0;
+  font-size: 15px;
+}
+
+/* --- Details (day) popover --------------------------------------------------- */
+.details {
+  /* Anchored popover in document coordinates; left/top set inline by
+     details.ts (width mirrored in SETTINGS.POPOVER.widthPx). */
+  position: absolute;
+  width: min(420px, calc(100vw - 24px));
+  background: #fff;
+  color: #111;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 60; /* above the grid, below the dock (100) */
+}
+
+.details-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.details-date {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.rel-time {
+  color: #666;
+  font-size: 12px;
+}
+
+.details-list {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0;
+}
+
+/* One entry = one click target: the whole row opens the edit form. */
+.details-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.details-entry:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.details-entry .entry-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.details-entry .entry-edit-hint {
+  color: #999;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.details-entry:hover .entry-edit-hint,
+.details-entry.is-editing .entry-edit-hint {
+  opacity: 1;
+}
+
+/* The row currently loaded into the edit form, tinted like the form itself. */
+.details-entry.is-editing {
+  background: var(--form-tint);
+  box-shadow: inset 3px 0 0 var(--form-accent);
+}
+
+.details-add {
+  margin-top: 6px;
+}
+
+.details-form:not(:empty) {
+  margin-top: 8px;
+}
+
+/* --- Combined view (selected days) ------------------------------------------ */
+.combined-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 150; /* above the dock (100) */
+}
+
+.combined {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow-y: auto;
+  background: #fff;
+  color: #111;
+  padding: 20px 24px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.combined-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font: inherit;
+  font-size: 13px;
+  color: #999;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.combined-close:hover {
+  color: #333;
+}
+
+.combined-day + .combined-day,
+.combined-gap + .combined-day {
+  margin-top: 4px;
+}
+
+.combined-event {
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+}
+
+.combined-empty {
+  color: #999;
+  padding: 3px 0;
+}
+
+/* Elapsed span between two consecutive selected days. */
+.combined-gap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  color: var(--monthLabel);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.combined-gap::before,
+.combined-gap::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* --- Lazy-load sentinels -------------------------------------------------- */
+.sentinel {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* --- Bottom dock (bar + popovers) ------------------------------------------ */
+.dock {
+  position: fixed;
+  inset: auto 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 100;
+  /* Only the dock's children catch clicks; the empty strip above the bar
+     stays transparent to the grid underneath. */
+  pointer-events: none;
+}
+
+.dock > * {
+  pointer-events: auto;
+}
+
+.panel {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--panel-bg);
+  border-top: var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* --- Popovers (settings menu, add form) ------------------------------------ */
+.popover {
+  margin-bottom: 10px;
+  padding: 14px;
+  background: #fff;
+  border: var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.popover[hidden] {
+  display: none;
+}
+
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* --- Cell size slider --------------------------------------------------------- */
+.size-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 110px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pill);
+  cursor: pointer;
+}
+
+.size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--today);
+  box-shadow: var(--shadow-soft);
+}
+
+.size-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--today);
+  box-shadow: var(--shadow-soft);
+}
+
+/* --- Search input ----------------------------------------------------------- */
+.search-input {
+  font: inherit;
+  color: #1c1c1e;
+  background: var(--pill);
+  border: none;
+  border-radius: 9px;
+  padding: 7px 12px;
+  width: 150px;
+}
+
+.search-input:focus {
+  outline: 2px solid var(--today);
+  outline-offset: -1px;
+}
+
+/* --- Entry form (add/edit) --------------------------------------------------- */
+/* The form is the only surface using --form-accent: a tinted, left-bordered
+   block so "what is being added/edited" is unmistakable. */
+.entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 260px;
+  padding: 12px 14px;
+  background: var(--form-tint);
+  border-left: 3px solid var(--form-accent);
+  border-radius: 0 8px 8px 0;
+}
+
+.form-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--form-accent);
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.form-row .field-name input {
+  width: 84px;
+}
+
+.form-row .field-date {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-row .field-date input {
+  width: 100%;
+  min-width: 0;
+}
+
+.entry-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.entry-form .field > span {
+  font-size: 11px;
+  color: #555;
+}
+
+.entry-form input {
+  font: inherit;
+  color: #111;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.entry-form input:focus {
+  outline: 2px solid var(--form-accent);
+  outline-offset: -1px;
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Destructive action: quiet text button, red, away from Save/Cancel. */
+.form-danger {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 12px;
+  color: var(--event);
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.form-danger:hover {
+  text-decoration: underline;
+}
+
+.panel .group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel .label {
+  font-size: 12px;
+  color: #555;
+}
+
+.seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--pill);
+  border-radius: 9px;
+}
+
+.pill {
+  font: inherit;
+  font-weight: 500;
+  color: #1c1c1e;
+  background: var(--pill);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.seg .pill {
+  background: transparent;
+}
+
+.pill.ghost {
+  background: transparent;
+}
+
+.pill:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.pill.is-active {
+  background: var(--today);
+  color: #fff;
+}
+
+/* Primary form action (Save) — tied to the form accent, not the palette. */
+.pill.is-primary {
+  background: var(--form-accent);
+  color: #fff;
+}
+
+.pill.is-primary:hover {
+  background: var(--form-accent);
+  filter: brightness(1.08);
+}
+
+/* --- Reduced motion ---------------------------------------------------------- */
+/* JS-driven animations short-circuit in effects.ts / animateScroll.ts;
+   this covers the pure-CSS micro-interactions. */
+@media (prefers-reduced-motion: reduce) {
+  .day {
+    transition: none;
+  }
+
+  .day:hover {
+    transform: none;
+  }
+}
