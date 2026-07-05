@@ -27,19 +27,19 @@ export const SETTINGS = {
   /** Padding (days) around the first/last search match in the bounded search view. */
   searchPadDays: 7,
   /** Debounce (ms) for the search input before the store is updated. */
-  searchDebounceMs: 200,
+  searchDebounceMs: 220,
 
   /** Rows added per lazy extend in the stream view. */
-  extendChunkRows: 26,
+  extendChunkRows: 20,
   /** Months added per lazy extend in the months view. */
   extendChunkMonths: 4,
   /** Pre-load distance for the scroll sentinels. */
-  sentinelMarginPx: 800,
+  sentinelMarginPx: 600,
 
   SCROLL: {
     /** Shortest/longest allowed scroll animation. */
-    minDurationMs: 180,
-    maxDurationMs: 550,
+    minDurationMs: 190,
+    maxDurationMs: 600,
     /** Animation speed used to derive duration from distance. */
     pxPerMs: 3,
     /** Distances beyond this many viewport heights teleport most of the way. */
@@ -52,7 +52,7 @@ export const SETTINGS = {
 
   POPOVER: {
     /** Day-panel popover width; mirrored in style.css (.details width). */
-    widthPx: 420,
+    widthPx: 440,
     /** Minimal gap between the popover and the viewport edges. */
     viewportMarginPx: 12,
     /** Gap between the popover and its anchor cell. */
