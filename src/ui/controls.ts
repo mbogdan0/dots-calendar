@@ -194,9 +194,13 @@ export function createControls(store: Store, app: AppHandle): HTMLElement {
 
   function syncSelection(): void {
     const n = selectionSize();
-    selectBtn.classList.toggle('is-active', isSelectMode());
+    const on = isSelectMode();
+    // Active select mode must be unmissable: the pill turns the selection
+    // accent (same blue as the day outlines) and gains a ✕ to exit.
+    selectBtn.classList.toggle('is-select-on', on);
+    selectBtn.textContent = on ? UI_TEXT.selectActiveLabel : UI_TEXT.selectLabel;
     combineBtn.textContent = `${UI_TEXT.combineLabel}${n > 1 ? ` ${n}` : ''}`;
-    combineBtn.hidden = resetBtn.hidden = !(isSelectMode() && n >= 1);
+    combineBtn.hidden = resetBtn.hidden = !(on && n >= 1);
   }
   onSelectionChange(syncSelection);
   syncSelection();

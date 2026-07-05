@@ -1,6 +1,6 @@
 import type { DotEvent } from '../data/types';
 import { colorFor, type ResolvedColors } from '../domain/colors';
-import { fmtDMY, isWeekend, ymd } from '../domain/dateUtils';
+import { isWeekend, ymd } from '../domain/dateUtils';
 import { isSelected } from './selection';
 
 export function esc(s: string): string {
@@ -16,12 +16,37 @@ interface CellLabel {
   html: string;
   two: boolean;
   plus: boolean;
-  /** Longest visible line in chars — drives the width-aware font (--ln). */
-  len: number;
+  /** Widest visible line in em — drives the width-aware font (--wf). */
+  em: number;
 }
 
-/** Char count that treats an emoji/surrogate pair as one glyph. */
-const glyphLen = (s: string): number => [...s].length;
+/**
+ * Measured text width in em at the label font (body stack, weight 500), so the
+ * CSS fit formula sizes for the actual glyphs — "Wow" gets a smaller font than
+ * "ill" instead of an ellipsis. Cached per string: names are ≤ SHORT_MAX chars
+ * and mostly repeat, so the cache stays tiny.
+ */
+const emCache = new Map<string, number>();
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+
+function emWidth(s: string): number {
+  const hit = emCache.get(s);
+  if (hit !== undefined) return hit;
+  if (measureCtx === undefined) {
+    measureCtx = document.createElement('canvas').getContext('2d');
+    if (measureCtx) {
+      measureCtx.font = '500 100px -apple-system, system-ui, "Segoe UI", Roboto, sans-serif';
+    }
+  }
+  // No-canvas fallback: the old average-width heuristic (~0.63em per glyph).
+  // Layout adds 0.01em letter-spacing per glyph (style.css .day > span) that
+  // measureText does not see — without it a snug label overflows a few px,
+  // and an overflowing centered line clips end-only, looking off-center.
+  const glyphs = [...s].length;
+  const em = (measureCtx ? measureCtx.measureText(s).width / 100 : glyphs * 0.63) + glyphs * 0.01;
+  emCache.set(s, em);
+  return em;
+}
 
 /**
  * Cell text rule: 0=empty, 1=name, 2=two stacked names, 3+=primary name plus
@@ -32,13 +57,13 @@ const glyphLen = (s: string): number => [...s].length;
  */
 export function makeCellLabel(evs: DotEvent[]): CellLabel {
   const count = evs.length;
-  if (count === 0) return { html: '', two: false, plus: false, len: 0 };
+  if (count === 0) return { html: '', two: false, plus: false, em: 0 };
   if (count === 1) {
     const short = evs[0].short;
     // Spread, not charAt: an emoji/surrogate-pair initial stays whole.
     const html =
       `<span class="l1">${esc(short)}</span>` + `<span class="li">${esc([...short][0] ?? '')}</span>`;
-    return { html, two: false, plus: false, len: glyphLen(short) };
+    return { html, two: false, plus: false, em: emWidth(short) };
   }
   if (count === 2) {
     const html =
@@ -49,7 +74,7 @@ export function makeCellLabel(evs: DotEvent[]): CellLabel {
       html,
       two: true,
       plus: false,
-      len: Math.max(glyphLen(evs[0].short), glyphLen(evs[1].short)),
+      em: Math.max(emWidth(evs[0].short), emWidth(evs[1].short)),
     };
   }
   const primary = evs.find((ev) => ev.important) ?? evs[0];
@@ -61,7 +86,8 @@ export function makeCellLabel(evs: DotEvent[]): CellLabel {
     html,
     two: true,
     plus: true,
-    len: Math.max(glyphLen(primary.short), 1 + String(count - 1).length),
+    // The +N line renders at 0.85em (.is-plus .l2) — scale before comparing.
+    em: Math.max(emWidth(primary.short), emWidth(`+${count - 1}`) * 0.85),
   };
 }
 
@@ -79,7 +105,7 @@ export function buildDayCell(
   const isPast = key < todayKey; // lexicographic compare is valid for YYYY-MM-DD
   const isEvent = evs.length > 0;
 
-  const { html, two, plus, len } = makeCellLabel(evs);
+  const { html, two, plus, em } = makeCellLabel(evs);
 
   const el = document.createElement('div');
   el.className = 'day';
@@ -87,7 +113,6 @@ export function buildDayCell(
   if (plus) el.classList.add('is-plus');
   if (matchIds && evs.some((ev) => matchIds.has(ev.id))) el.classList.add('is-match');
   if (isSelected(key)) el.classList.add('is-selected');
-  el.dataset.date = fmtDMY(date);
   el.dataset.ymd = key;
   el.dataset.ts = String(date.getTime());
   if (isToday) el.dataset.today = '1';
@@ -96,7 +121,7 @@ export function buildDayCell(
   const span = document.createElement('span');
   if (html) {
     span.innerHTML = html;
-    span.style.setProperty('--ln', String(Math.max(1, len)));
+    span.style.setProperty('--wf', Math.max(0.5, em).toFixed(3));
   }
   el.appendChild(span);
   return el;

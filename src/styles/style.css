@@ -100,18 +100,25 @@ body {
   pointer-events: none;
   display: block;
   max-width: 100%;
+  /* clip, never ellipsis: "…" wastes room a real letter could use. The
+     measured fit below makes overflow rare; when it happens the text is
+     simply cut at the edge. */
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
   padding: 0 6%;
   line-height: 1.1;
   font-weight: 500;
   letter-spacing: 0.01em;
   /* Fixed-px fallback first; browsers with container-query support take the
-     cq value. Width-aware via --ln (label length in chars, set by cell.ts):
-     short names grow until height-capped, long ones stop at the cell edge. */
+     cq value. Width-aware via --wf (widest label line in em, canvas-measured
+     by cell.ts): short names grow until height-capped, wide ones shrink just
+     enough to fit whole — 84cqw is the 88cqw content box (2×6% padding) minus
+     a font-resolution/rounding margin, so the overflow clip above stays a
+     safety net that effectively never fires. The margin matters for centering
+     too: an overflowing centered line clips end-only and looks shifted. */
   font-size: 12px;
-  font-size: min(clamp(10px, 42cqh, 42px), calc(140cqw / var(--ln, 4)));
+  font-size: min(clamp(10px, 42cqh, 42px), calc(84cqw / var(--wf, 2.4)));
 }
 
 /* Two stacked lines: two event names, or name + "+N" overflow (.is-plus). */
@@ -120,14 +127,14 @@ body {
   text-overflow: clip;
   line-height: 1.15;
   font-size: 11px;
-  font-size: min(clamp(8px, 30cqh, 30px), calc(140cqw / var(--ln, 4)));
+  font-size: min(clamp(8px, 30cqh, 30px), calc(84cqw / var(--wf, 2.4)));
 }
 
 .day.is-two .l1,
 .day.is-two .l2 {
   display: block;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -152,7 +159,7 @@ body {
   /* 2 events: one label at the single-line scale. */
   .day.is-two > span {
     font-size: 12px;
-    font-size: min(clamp(8px, 34cqh, 16px), calc(140cqw / var(--ln, 4)));
+    font-size: min(clamp(8px, 34cqh, 16px), calc(84cqw / var(--wf, 2.4)));
   }
 
   .day.is-two .l2 {
@@ -202,6 +209,33 @@ body {
     font-size: 10px;
     font-size: clamp(9px, 55cqh, 15px);
   }
+}
+
+/* --- Small-cells performance mode ------------------------------------------ */
+/* html.cells-s is toggled by applyCellSize (ui/cellSize.ts) when the effective
+   cell size drops to SETTINGS.LAYOUT.smallCellPx (40px) — the "thousands of
+   tiny squares" regime where per-cell chrome is invisible but dominates
+   layout/paint cost. Off-screen rows become content-visibility islands: lazy
+   extends and size-slider relayouts only touch rendered rows. The intrinsic
+   height estimate is exact here (the grid is narrower than the window, so a
+   row is exactly --cell-max tall), keeping scrollHeight — and the prepend
+   scroll compensation in infiniteScroll.ts — stable. Accepted trade-off:
+   paint containment clips outlines (is-match/is-pulse) ~1px at row edges,
+   imperceptible at this scale. */
+html.cells-s .row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto var(--cell-max);
+}
+
+html.cells-s .day {
+  box-shadow: none;
+  border: none;
+  transition: none;
+}
+
+html.cells-s .day:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* Search-match highlight: ring only — the fill color never changes. */
@@ -271,15 +305,15 @@ body.is-select-mode .day {
 /* --- Details (day) popover --------------------------------------------------- */
 .details {
   /* Anchored popover in document coordinates; left/top set inline by
-     details.ts (width mirrored in SETTINGS.POPOVER.widthPx). */
+     details.ts (positionPanel measures the rendered width). */
   position: absolute;
-  width: min(420px, calc(100vw - 24px));
+  width: min(550px, calc(100vw - 24px));
   background: #fff;
   color: #111;
   padding: 16px 18px;
   border-radius: var(--radius-lg);
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 15px;
+  line-height: 1.45;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
   z-index: 60; /* above the grid, below the dock (100) */
 }
@@ -293,12 +327,12 @@ body.is-select-mode .day {
 
 .details-date {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .rel-time {
   color: #666;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .details-list {
@@ -327,10 +361,25 @@ body.is-select-mode .day {
   background: rgba(0, 0, 0, 0.05);
 }
 
+/* Entry text everywhere it appears (day panel rows, combined view rows). */
+.entry-text {
+  font-size: 16px;
+}
+
 .details-entry .entry-text {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* Importance marker on entry rows — a dot in the event color; routine entries
+   simply have none. */
+.entry-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--event);
 }
 
 .details-entry .entry-edit-hint {
@@ -360,6 +409,12 @@ body.is-select-mode .day {
 }
 
 /* --- Combined view (selected days) ------------------------------------------ */
+/* Page scroll is frozen while the combined modal is open (combined.ts toggles
+   the class); the modal keeps its own overflow-y. */
+body.is-modal-open {
+  overflow: hidden;
+}
+
 .combined-overlay {
   position: fixed;
   inset: 0;
@@ -407,7 +462,14 @@ body.is-select-mode .day {
 }
 
 .combined-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 3px 0;
+}
+
+.combined-event .entry-text {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -688,6 +750,18 @@ body.is-select-mode .day {
 .pill.is-active {
   background: var(--today);
   color: #fff;
+}
+
+/* Select mode is on — the pill wears the selection accent (the same blue as
+   the selected-day outlines) so the active mode is unmissable. */
+.pill.is-select-on {
+  background: var(--form-accent);
+  color: #fff;
+}
+
+.pill.is-select-on:hover {
+  background: var(--form-accent);
+  filter: brightness(1.08);
 }
 
 /* Primary form action (Save) — tied to the form accent, not the palette. */

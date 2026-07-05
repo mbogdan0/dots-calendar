@@ -47,4 +47,8 @@ export function applyCellSize(sliderPx: number, rowWidth: number): void {
   const root = document.documentElement;
   root.style.setProperty('--cell-max', `${cell}px`);
   root.style.setProperty('--gutter-w', `${gutterFor(cell)}px`);
+  // Small-cells presentation mode (style.css): rows become content-visibility
+  // islands and per-cell chrome is dropped. Threshold matches the 40px label
+  // density breakpoint (see LAYOUT comment in settings.ts).
+  root.classList.toggle('cells-s', cell <= SETTINGS.LAYOUT.smallCellPx);
 }

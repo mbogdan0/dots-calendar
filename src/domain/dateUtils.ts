@@ -1,3 +1,5 @@
+import { MONTHS_RU_GEN, WEEKDAYS_RU } from '../config/settings';
+
 export const DAY_MS = 86_400_000;
 
 /** 'YYYY-MM-DD' — lexicographically sortable, matches old.js. */
@@ -11,15 +13,9 @@ export function ymd(d: Date): string {
   );
 }
 
-/** 'DD.MM.YYYY' for the details panel. */
-export function fmtDMY(d: Date): string {
-  return (
-    String(d.getDate()).padStart(2, '0') +
-    '.' +
-    String(d.getMonth() + 1).padStart(2, '0') +
-    '.' +
-    d.getFullYear()
-  );
+/** '14 марта 2026, суббота' for the details panel and combined view. */
+export function fmtLong(d: Date): string {
+  return `${d.getDate()} ${MONTHS_RU_GEN[d.getMonth()]} ${d.getFullYear()}, ${WEEKDAYS_RU[d.getDay()]}`;
 }
 
 export function setNoon(d: Date): Date {

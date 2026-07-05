@@ -51,8 +51,6 @@ export const SETTINGS = {
   },
 
   POPOVER: {
-    /** Day-panel popover width; mirrored in style.css (.details width). */
-    widthPx: 440,
     /** Minimal gap between the popover and the viewport edges. */
     viewportMarginPx: 12,
     /** Gap between the popover and its anchor cell. */
@@ -79,6 +77,12 @@ export const SETTINGS = {
     gutterMinPx: 44,
     gutterMaxPx: 88,
     gutterRatio: 0.85,
+    /** At or below this effective cell size the root gets .cells-s: rows turn
+     * into content-visibility islands and per-cell chrome (shadow, border,
+     * hover zoom) is dropped — it is invisible at this scale but dominates
+     * layout/paint cost when thousands of squares are on screen. Matches the
+     * 40px label-density breakpoint above. */
+    smallCellPx: 40,
   },
 } as const;
 
@@ -92,6 +96,17 @@ export const MONTHS_RU_SHORT = [
   'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
 ] as const;
 
+/** Genitive month names for full dates ("14 марта 2026"). */
+export const MONTHS_RU_GEN = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+] as const;
+
+/** Weekday names indexed by Date#getDay() (Sunday first). */
+export const WEEKDAYS_RU = [
+  'воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота',
+] as const;
+
 export const UI_TEXT = {
   noEventsText: 'Нет событий',
   today: 'Сегодня',
@@ -103,7 +118,12 @@ export const UI_TEXT = {
   exportLabel: 'Экспорт',
 
   selectLabel: 'Выбрать',
-  combineLabel: 'Объединить',
+  /** Shown on the same pill while select mode is on: the cross signals that
+   * the next click exits the mode. */
+  selectActiveLabel: '✕ Выбор',
+  // "Сравнить", not "Объединить": the modal merges nothing — it lays the
+  // selected days side by side with the elapsed span between them.
+  combineLabel: 'Сравнить',
   resetLabel: 'Сбросить',
   gapPrefix: 'спустя',
 

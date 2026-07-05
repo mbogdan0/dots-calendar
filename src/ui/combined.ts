@@ -1,7 +1,8 @@
 import { UI_TEXT } from '../config/settings';
-import { fmtDMY } from '../domain/dateUtils';
+import { fmtLong } from '../domain/dateUtils';
 import { diffParts, diffStr } from '../domain/relativeTime';
 import { detailsIn, detailsOut, fadeIn, fadeOut } from './effects';
+import { importantDot } from './pill';
 import { selectedYmds } from './selection';
 import type { Store } from './state';
 
@@ -27,6 +28,7 @@ export function closeCombined(): boolean {
   const modal = overlay.querySelector<HTMLElement>('.combined');
   if (modal) detailsOut(modal, () => {});
   fadeOut(overlay, () => overlay.remove());
+  document.body.classList.remove('is-modal-open');
   return true;
 }
 
@@ -77,7 +79,7 @@ export function openCombined(store: Store): void {
     head.className = 'details-head';
     const dateEl = document.createElement('span');
     dateEl.className = 'details-date';
-    dateEl.textContent = fmtDMY(date);
+    dateEl.textContent = fmtLong(date);
     head.appendChild(dateEl);
     const rel = diffStr(date, now, 3);
     if (rel) {
@@ -98,7 +100,11 @@ export function openCombined(store: Store): void {
       for (const ev of items) {
         const row = document.createElement('div');
         row.className = 'combined-event';
-        row.textContent = ev.short + (ev.full ? ' — ' + ev.full : '');
+        if (ev.important) row.appendChild(importantDot());
+        const text = document.createElement('span');
+        text.className = 'entry-text';
+        text.textContent = ev.short + (ev.full ? ' — ' + ev.full : '');
+        row.appendChild(text);
         day.appendChild(row);
       }
     }
@@ -108,6 +114,8 @@ export function openCombined(store: Store): void {
   overlay.appendChild(modal);
   overlayEl = overlay;
   document.body.appendChild(overlay);
+  // The page must not scroll under the modal (style.css body.is-modal-open).
+  document.body.classList.add('is-modal-open');
   fadeIn(overlay);
   detailsIn(modal);
 

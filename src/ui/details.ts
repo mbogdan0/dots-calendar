@@ -1,10 +1,11 @@
 import { SETTINGS, UI_TEXT } from '../config/settings';
 import { dataSource } from '../data';
 import type { DotEvent } from '../data/types';
+import { fmtLong } from '../domain/dateUtils';
 import { diffStr } from '../domain/relativeTime';
 import { detailsIn, detailsOut, swapHeight } from './effects';
 import { buildEntryForm, type EntryFormOptions } from './entryForm';
-import { pill } from './pill';
+import { importantDot, pill } from './pill';
 import { setScrollIntent } from './scrollIntent';
 import { isSelectMode, onSelectionChange, toggleDay } from './selection';
 import type { Store } from './state';
@@ -157,11 +158,11 @@ function buildDayPanel(
 
   const head = document.createElement('div');
   head.className = 'details-head';
+  const ts = day.dataset.ts ? Number(day.dataset.ts) : 0;
   const dateEl = document.createElement('span');
   dateEl.className = 'details-date';
-  dateEl.textContent = day.dataset.date ?? '';
+  dateEl.textContent = ts ? fmtLong(new Date(ts)) : '';
   head.appendChild(dateEl);
-  const ts = day.dataset.ts ? Number(day.dataset.ts) : 0;
   const rel = ts ? diffStr(new Date(ts), new Date(), 3) : '';
   if (rel) {
     const relEl = document.createElement('span');
@@ -241,6 +242,8 @@ function buildEntryRow(
   hint.textContent = '✎';
   hint.setAttribute('aria-hidden', 'true');
 
+  // Important entries carry a dot in the event color; routine ones carry none.
+  if (ev.important) row.appendChild(importantDot());
   row.append(text, hint);
 
   row.addEventListener('click', () => {
